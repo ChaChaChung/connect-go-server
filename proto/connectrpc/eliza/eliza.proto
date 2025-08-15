@@ -7,6 +7,10 @@ option go_package = "myapp/backend/gen/connectrpc/eliza;eliza";
 service ElizaService {
   rpc Say(SayRequest) returns (SayResponse);
   rpc GetRandomPerson(GetRandomPersonRequest) returns (GetRandomPersonResponse);
+  
+  // 外觀相關操作
+  rpc GetAppearance(GetAppearanceRequest) returns (GetAppearanceResponse);
+  rpc UpdateAppearance(UpdateAppearanceRequest) returns (UpdateAppearanceResponse);
 }
 
 message SayRequest {
@@ -32,4 +36,38 @@ message Person {
   string email = 4;
   string department = 5;
   string position = 6;
+}
+
+// 外觀相關消息
+message Appearance {
+  string id = 1;
+  string logo_url = 2;
+  string primary_color = 3;
+  string secondary_color = 4;
+  string created_at = 5;
+  string updated_at = 6;
+  string logo_key = 7;
+  int64 logo_size = 8;
+  string logo_type = 9;
+}
+
+// 獲取外觀請求
+message GetAppearanceRequest {
+  string id = 1;
+}
+
+// 獲取外觀響應
+message GetAppearanceResponse {
+  Appearance appearance = 1;
+}
+
+// 更新外觀請求
+message UpdateAppearanceRequest {
+  Appearance appearance = 1;
+}
+
+// 更新外觀響應
+message UpdateAppearanceResponse {
+  Appearance appearance = 1;
+  string message = 2;
 }

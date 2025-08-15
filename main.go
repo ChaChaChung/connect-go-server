@@ -59,18 +59,24 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"log"
 	"math/rand"
 	"net/http"
 
+	"myapp/backend/config"
 	elizav1 "myapp/backend/gen/connectrpc/eliza"                     // proto messages
 	elizav1connect "myapp/backend/gen/connectrpc/eliza/elizaconnect" // connect service handlers
+	"myapp/backend/models"
 
 	"connectrpc.com/connect"
 	"github.com/rs/cors"
 )
 
-type ElizaServer struct{}
+type ElizaServer struct {
+	db             *sql.DB
+	appearanceRepo models.AppearanceRepository
+}
 
 func (s *ElizaServer) Say(ctx context.Context, req *connect.Request[elizav1.SayRequest]) (*connect.Response[elizav1.SayResponse], error) {
 	log.Println("收到請求：", req.Msg.Sentence)
@@ -137,9 +143,97 @@ func (s *ElizaServer) GetRandomPerson(ctx context.Context, req *connect.Request[
 	}), nil
 }
 
+// GetAppearance 根據 ID 獲取外觀
+func (s *ElizaServer) GetAppearance(ctx context.Context, req *connect.Request[elizav1.GetAppearanceRequest]) (*connect.Response[elizav1.GetAppearanceResponse], error) {
+	log.Println("收到獲取外觀請求：", req.Msg.Id)
+
+	appearance, err := s.appearanceRepo.GetByID(req.Msg.Id)
+	if err != nil {
+		log.Printf("獲取外觀失敗：%v", err)
+		return nil, connect.NewError(connect.CodeNotFound, err)
+	}
+
+	// 轉換為 proto 消息
+	protoAppearance := &elizav1.Appearance{
+		Id:             appearance.ID,
+		LogoUrl:        appearance.LogoURL.String,
+		PrimaryColor:   appearance.PrimaryColor.String,
+		SecondaryColor: appearance.SecondaryColor.String,
+		CreatedAt:      appearance.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:      appearance.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		LogoKey:        appearance.LogoKey.String,
+		LogoSize:       appearance.LogoSize.Int64,
+		LogoType:       appearance.LogoType.String,
+	}
+
+	return connect.NewResponse(&elizav1.GetAppearanceResponse{
+		Appearance: protoAppearance,
+	}), nil
+}
+
+// UpdateAppearance 更新外觀信息
+func (s *ElizaServer) UpdateAppearance(ctx context.Context, req *connect.Request[elizav1.UpdateAppearanceRequest]) (*connect.Response[elizav1.UpdateAppearanceResponse], error) {
+	log.Println("收到更新外觀請求：", req.Msg.Appearance.Id)
+
+	// 轉換 proto 消息到模型
+	appearance := &models.Appearance{
+		ID:             req.Msg.Appearance.Id,
+		LogoURL:        sql.NullString{String: req.Msg.Appearance.LogoUrl, Valid: req.Msg.Appearance.LogoUrl != ""},
+		PrimaryColor:   sql.NullString{String: req.Msg.Appearance.PrimaryColor, Valid: req.Msg.Appearance.PrimaryColor != ""},
+		SecondaryColor: sql.NullString{String: req.Msg.Appearance.SecondaryColor, Valid: req.Msg.Appearance.SecondaryColor != ""},
+		LogoKey:        sql.NullString{String: req.Msg.Appearance.LogoKey, Valid: req.Msg.Appearance.LogoKey != ""},
+		LogoSize:       sql.NullInt64{Int64: req.Msg.Appearance.LogoSize, Valid: req.Msg.Appearance.LogoSize > 0},
+		LogoType:       sql.NullString{String: req.Msg.Appearance.LogoType, Valid: req.Msg.Appearance.LogoType != ""},
+	}
+
+	// 更新到數據庫
+	err := s.appearanceRepo.Update(appearance)
+	if err != nil {
+		log.Printf("更新外觀失敗：%v", err)
+		return nil, connect.NewError(connect.CodeInternal, err)
+	}
+
+	// 轉換回 proto 消息
+	protoAppearance := &elizav1.Appearance{
+		Id:             appearance.ID,
+		LogoUrl:        appearance.LogoURL.String,
+		PrimaryColor:   appearance.PrimaryColor.String,
+		SecondaryColor: appearance.SecondaryColor.String,
+		CreatedAt:      appearance.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:      appearance.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		LogoKey:        appearance.LogoKey.String,
+		LogoSize:       appearance.LogoSize.Int64,
+		LogoType:       appearance.LogoType.String,
+	}
+
+	return connect.NewResponse(&elizav1.UpdateAppearanceResponse{
+		Appearance: protoAppearance,
+		Message:    "外觀更新成功",
+	}), nil
+}
+
 func main() {
+	// 初始化配置
+	appConfig := config.NewAppConfig()
+
+	// 連接到數據庫
+	db, err := appConfig.Database.Connect()
+	if err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+	defer db.Close()
+
+	// 創建外觀倉庫
+	appearanceRepo := models.NewAppearanceRepository(db.DB)
+
+	// 創建服務器實例
+	server := &ElizaServer{
+		db:             db.DB,
+		appearanceRepo: appearanceRepo,
+	}
+
 	mux := http.NewServeMux()
-	path, handler := elizav1connect.NewElizaServiceHandler(&ElizaServer{})
+	path, handler := elizav1connect.NewElizaServiceHandler(server)
 	mux.Handle(path, handler)
 
 	c := cors.New(cors.Options{

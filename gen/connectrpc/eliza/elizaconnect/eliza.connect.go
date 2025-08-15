@@ -38,12 +38,21 @@ const (
 	// ElizaServiceGetRandomPersonProcedure is the fully-qualified name of the ElizaService's
 	// GetRandomPerson RPC.
 	ElizaServiceGetRandomPersonProcedure = "/connectrpc.eliza.v1.ElizaService/GetRandomPerson"
+	// ElizaServiceGetAppearanceProcedure is the fully-qualified name of the ElizaService's
+	// GetAppearance RPC.
+	ElizaServiceGetAppearanceProcedure = "/connectrpc.eliza.v1.ElizaService/GetAppearance"
+	// ElizaServiceUpdateAppearanceProcedure is the fully-qualified name of the ElizaService's
+	// UpdateAppearance RPC.
+	ElizaServiceUpdateAppearanceProcedure = "/connectrpc.eliza.v1.ElizaService/UpdateAppearance"
 )
 
 // ElizaServiceClient is a client for the connectrpc.eliza.v1.ElizaService service.
 type ElizaServiceClient interface {
 	Say(context.Context, *connect.Request[eliza.SayRequest]) (*connect.Response[eliza.SayResponse], error)
 	GetRandomPerson(context.Context, *connect.Request[eliza.GetRandomPersonRequest]) (*connect.Response[eliza.GetRandomPersonResponse], error)
+	// 外觀相關操作
+	GetAppearance(context.Context, *connect.Request[eliza.GetAppearanceRequest]) (*connect.Response[eliza.GetAppearanceResponse], error)
+	UpdateAppearance(context.Context, *connect.Request[eliza.UpdateAppearanceRequest]) (*connect.Response[eliza.UpdateAppearanceResponse], error)
 }
 
 // NewElizaServiceClient constructs a client for the connectrpc.eliza.v1.ElizaService service. By
@@ -69,13 +78,27 @@ func NewElizaServiceClient(httpClient connect.HTTPClient, baseURL string, opts .
 			connect.WithSchema(elizaServiceMethods.ByName("GetRandomPerson")),
 			connect.WithClientOptions(opts...),
 		),
+		getAppearance: connect.NewClient[eliza.GetAppearanceRequest, eliza.GetAppearanceResponse](
+			httpClient,
+			baseURL+ElizaServiceGetAppearanceProcedure,
+			connect.WithSchema(elizaServiceMethods.ByName("GetAppearance")),
+			connect.WithClientOptions(opts...),
+		),
+		updateAppearance: connect.NewClient[eliza.UpdateAppearanceRequest, eliza.UpdateAppearanceResponse](
+			httpClient,
+			baseURL+ElizaServiceUpdateAppearanceProcedure,
+			connect.WithSchema(elizaServiceMethods.ByName("UpdateAppearance")),
+			connect.WithClientOptions(opts...),
+		),
 	}
 }
 
 // elizaServiceClient implements ElizaServiceClient.
 type elizaServiceClient struct {
-	say             *connect.Client[eliza.SayRequest, eliza.SayResponse]
-	getRandomPerson *connect.Client[eliza.GetRandomPersonRequest, eliza.GetRandomPersonResponse]
+	say              *connect.Client[eliza.SayRequest, eliza.SayResponse]
+	getRandomPerson  *connect.Client[eliza.GetRandomPersonRequest, eliza.GetRandomPersonResponse]
+	getAppearance    *connect.Client[eliza.GetAppearanceRequest, eliza.GetAppearanceResponse]
+	updateAppearance *connect.Client[eliza.UpdateAppearanceRequest, eliza.UpdateAppearanceResponse]
 }
 
 // Say calls connectrpc.eliza.v1.ElizaService.Say.
@@ -88,10 +111,23 @@ func (c *elizaServiceClient) GetRandomPerson(ctx context.Context, req *connect.R
 	return c.getRandomPerson.CallUnary(ctx, req)
 }
 
+// GetAppearance calls connectrpc.eliza.v1.ElizaService.GetAppearance.
+func (c *elizaServiceClient) GetAppearance(ctx context.Context, req *connect.Request[eliza.GetAppearanceRequest]) (*connect.Response[eliza.GetAppearanceResponse], error) {
+	return c.getAppearance.CallUnary(ctx, req)
+}
+
+// UpdateAppearance calls connectrpc.eliza.v1.ElizaService.UpdateAppearance.
+func (c *elizaServiceClient) UpdateAppearance(ctx context.Context, req *connect.Request[eliza.UpdateAppearanceRequest]) (*connect.Response[eliza.UpdateAppearanceResponse], error) {
+	return c.updateAppearance.CallUnary(ctx, req)
+}
+
 // ElizaServiceHandler is an implementation of the connectrpc.eliza.v1.ElizaService service.
 type ElizaServiceHandler interface {
 	Say(context.Context, *connect.Request[eliza.SayRequest]) (*connect.Response[eliza.SayResponse], error)
 	GetRandomPerson(context.Context, *connect.Request[eliza.GetRandomPersonRequest]) (*connect.Response[eliza.GetRandomPersonResponse], error)
+	// 外觀相關操作
+	GetAppearance(context.Context, *connect.Request[eliza.GetAppearanceRequest]) (*connect.Response[eliza.GetAppearanceResponse], error)
+	UpdateAppearance(context.Context, *connect.Request[eliza.UpdateAppearanceRequest]) (*connect.Response[eliza.UpdateAppearanceResponse], error)
 }
 
 // NewElizaServiceHandler builds an HTTP handler from the service implementation. It returns the
@@ -113,12 +149,28 @@ func NewElizaServiceHandler(svc ElizaServiceHandler, opts ...connect.HandlerOpti
 		connect.WithSchema(elizaServiceMethods.ByName("GetRandomPerson")),
 		connect.WithHandlerOptions(opts...),
 	)
+	elizaServiceGetAppearanceHandler := connect.NewUnaryHandler(
+		ElizaServiceGetAppearanceProcedure,
+		svc.GetAppearance,
+		connect.WithSchema(elizaServiceMethods.ByName("GetAppearance")),
+		connect.WithHandlerOptions(opts...),
+	)
+	elizaServiceUpdateAppearanceHandler := connect.NewUnaryHandler(
+		ElizaServiceUpdateAppearanceProcedure,
+		svc.UpdateAppearance,
+		connect.WithSchema(elizaServiceMethods.ByName("UpdateAppearance")),
+		connect.WithHandlerOptions(opts...),
+	)
 	return "/connectrpc.eliza.v1.ElizaService/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 		case ElizaServiceSayProcedure:
 			elizaServiceSayHandler.ServeHTTP(w, r)
 		case ElizaServiceGetRandomPersonProcedure:
 			elizaServiceGetRandomPersonHandler.ServeHTTP(w, r)
+		case ElizaServiceGetAppearanceProcedure:
+			elizaServiceGetAppearanceHandler.ServeHTTP(w, r)
+		case ElizaServiceUpdateAppearanceProcedure:
+			elizaServiceUpdateAppearanceHandler.ServeHTTP(w, r)
 		default:
 			http.NotFound(w, r)
 		}
@@ -134,4 +186,12 @@ func (UnimplementedElizaServiceHandler) Say(context.Context, *connect.Request[el
 
 func (UnimplementedElizaServiceHandler) GetRandomPerson(context.Context, *connect.Request[eliza.GetRandomPersonRequest]) (*connect.Response[eliza.GetRandomPersonResponse], error) {
 	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("connectrpc.eliza.v1.ElizaService.GetRandomPerson is not implemented"))
+}
+
+func (UnimplementedElizaServiceHandler) GetAppearance(context.Context, *connect.Request[eliza.GetAppearanceRequest]) (*connect.Response[eliza.GetAppearanceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("connectrpc.eliza.v1.ElizaService.GetAppearance is not implemented"))
+}
+
+func (UnimplementedElizaServiceHandler) UpdateAppearance(context.Context, *connect.Request[eliza.UpdateAppearanceRequest]) (*connect.Response[eliza.UpdateAppearanceResponse], error) {
+	return nil, connect.NewError(connect.CodeUnimplemented, errors.New("connectrpc.eliza.v1.ElizaService.UpdateAppearance is not implemented"))
 }
