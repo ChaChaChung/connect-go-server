@@ -13,7 +13,6 @@
 // 	elizav1connect "myapp/backend/gen/connectrpc/eliza/v1/v1connect" // connect service handlers
 // )
 
-
 // // ElizaServer 是 ElizaService 的實作
 // type ElizaServer struct{}
 
@@ -33,7 +32,7 @@
 // func main() {
 // 	// 建立服務實作
 // 	server := &ElizaServer{}
-	
+
 // 	// 建立 Connect HTTP 處理器
 // 	path, handler := elizav1connect.NewElizaServiceHandler(server)
 
@@ -61,10 +60,12 @@ package main
 import (
 	"context"
 	"log"
+	"math/rand"
 	"net/http"
 
-	elizav1 "myapp/backend/gen/connectrpc/eliza/v1"                // proto messages
-	elizav1connect "myapp/backend/gen/connectrpc/eliza/v1/v1connect" // connect service handlers
+	elizav1 "myapp/backend/gen/connectrpc/eliza"                     // proto messages
+	elizav1connect "myapp/backend/gen/connectrpc/eliza/elizaconnect" // connect service handlers
+
 	"connectrpc.com/connect"
 	"github.com/rs/cors"
 )
@@ -75,6 +76,64 @@ func (s *ElizaServer) Say(ctx context.Context, req *connect.Request[elizav1.SayR
 	log.Println("收到請求：", req.Msg.Sentence)
 	return connect.NewResponse(&elizav1.SayResponse{
 		Sentence: "你說的是：" + req.Msg.Sentence,
+	}), nil
+}
+
+func (s *ElizaServer) GetRandomPerson(ctx context.Context, req *connect.Request[elizav1.GetRandomPersonRequest]) (*connect.Response[elizav1.GetRandomPersonResponse], error) {
+	log.Println("收到 GetRandomPerson 請求")
+
+	// 預定義一些人員資料
+	people := []*elizav1.Person{
+		{
+			Id:         "001",
+			Name:       "張小明",
+			Age:        28,
+			Email:      "zhang.xiaoming@company.com",
+			Department: "工程部",
+			Position:   "軟體工程師",
+		},
+		{
+			Id:         "002",
+			Name:       "李小華",
+			Age:        32,
+			Email:      "li.xiaohua@company.com",
+			Department: "產品部",
+			Position:   "產品經理",
+		},
+		{
+			Id:         "003",
+			Name:       "王小美",
+			Age:        25,
+			Email:      "wang.xiaomei@company.com",
+			Department: "設計部",
+			Position:   "UI/UX 設計師",
+		},
+		{
+			Id:         "004",
+			Name:       "陳大強",
+			Age:        35,
+			Email:      "chen.daqiang@company.com",
+			Department: "管理部",
+			Position:   "技術總監",
+		},
+		{
+			Id:         "005",
+			Name:       "林小芳",
+			Age:        29,
+			Email:      "lin.xiaofang@company.com",
+			Department: "行銷部",
+			Position:   "行銷專員",
+		},
+	}
+
+	// 隨機選擇一個人
+	randomIndex := rand.Intn(len(people))
+	randomPerson := people[randomIndex]
+
+	log.Printf("回傳隨機人員：%s (%s)", randomPerson.Name, randomPerson.Position)
+
+	return connect.NewResponse(&elizav1.GetRandomPersonResponse{
+		Person: randomPerson,
 	}), nil
 }
 

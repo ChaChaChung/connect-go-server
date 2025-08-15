@@ -2,10 +2,11 @@ syntax = "proto3";
 
 package connectrpc.eliza.v1;
 
-option go_package = "myapp/backend/gen/connectrpc/eliza/v1;v1";
+option go_package = "myapp/backend/gen/connectrpc/eliza;eliza";
 
 service ElizaService {
   rpc Say(SayRequest) returns (SayResponse);
+  rpc GetRandomPerson(GetRandomPersonRequest) returns (GetRandomPersonResponse);
 }
 
 message SayRequest {
@@ -14,4 +15,21 @@ message SayRequest {
 
 message SayResponse {
   string sentence = 1;
+}
+
+message GetRandomPersonRequest {
+  // 可以留空，或者添加一些可選的篩選條件
+}
+
+message GetRandomPersonResponse {
+  Person person = 1;
+}
+
+message Person {
+  string id = 1;
+  string name = 2;
+  int32 age = 3;
+  string email = 4;
+  string department = 5;
+  string position = 6;
 }
