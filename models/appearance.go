@@ -70,7 +70,7 @@ func (r *AppearanceRepositoryImpl) Update(appearance *Appearance) error {
 		WHERE id = $1
 	`
 
-	appearance.UpdatedAt = time.Now()
+	appearance.UpdatedAt = time.Now().UTC()
 
 	_, err := r.db.Exec(query,
 		appearance.ID,

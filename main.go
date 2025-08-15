@@ -175,19 +175,24 @@ func (s *ElizaServer) GetAppearance(ctx context.Context, req *connect.Request[el
 func (s *ElizaServer) UpdateAppearance(ctx context.Context, req *connect.Request[elizav1.UpdateAppearanceRequest]) (*connect.Response[elizav1.UpdateAppearanceResponse], error) {
 	log.Println("收到更新外觀請求：", req.Msg.Appearance.Id)
 
-	// 轉換 proto 消息到模型
-	appearance := &models.Appearance{
-		ID:             req.Msg.Appearance.Id,
-		LogoURL:        sql.NullString{String: req.Msg.Appearance.LogoUrl, Valid: req.Msg.Appearance.LogoUrl != ""},
-		PrimaryColor:   sql.NullString{String: req.Msg.Appearance.PrimaryColor, Valid: req.Msg.Appearance.PrimaryColor != ""},
-		SecondaryColor: sql.NullString{String: req.Msg.Appearance.SecondaryColor, Valid: req.Msg.Appearance.SecondaryColor != ""},
-		LogoKey:        sql.NullString{String: req.Msg.Appearance.LogoKey, Valid: req.Msg.Appearance.LogoKey != ""},
-		LogoSize:       sql.NullInt64{Int64: req.Msg.Appearance.LogoSize, Valid: req.Msg.Appearance.LogoSize > 0},
-		LogoType:       sql.NullString{String: req.Msg.Appearance.LogoType, Valid: req.Msg.Appearance.LogoType != ""},
+	// 先從資料庫讀取現有資料
+	existingAppearance, err := s.appearanceRepo.GetByID(req.Msg.Appearance.Id)
+	if err != nil {
+		log.Printf("獲取現有外觀失敗：%v", err)
+		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
 
+	// 更新需要修改的欄位，保留 CreatedAt
+	existingAppearance.LogoURL = sql.NullString{String: req.Msg.Appearance.LogoUrl, Valid: req.Msg.Appearance.LogoUrl != ""}
+	existingAppearance.PrimaryColor = sql.NullString{String: req.Msg.Appearance.PrimaryColor, Valid: req.Msg.Appearance.PrimaryColor != ""}
+	existingAppearance.SecondaryColor = sql.NullString{String: req.Msg.Appearance.SecondaryColor, Valid: req.Msg.Appearance.SecondaryColor != ""}
+	existingAppearance.LogoKey = sql.NullString{String: req.Msg.Appearance.LogoKey, Valid: req.Msg.Appearance.LogoKey != ""}
+	existingAppearance.LogoSize = sql.NullInt64{Int64: req.Msg.Appearance.LogoSize, Valid: req.Msg.Appearance.LogoSize > 0}
+	existingAppearance.LogoType = sql.NullString{String: req.Msg.Appearance.LogoType, Valid: req.Msg.Appearance.LogoType != ""}
+	// UpdatedAt 會在 repository 層自動更新
+
 	// 更新到數據庫
-	err := s.appearanceRepo.Update(appearance)
+	err = s.appearanceRepo.Update(existingAppearance)
 	if err != nil {
 		log.Printf("更新外觀失敗：%v", err)
 		return nil, connect.NewError(connect.CodeInternal, err)
@@ -195,15 +200,15 @@ func (s *ElizaServer) UpdateAppearance(ctx context.Context, req *connect.Request
 
 	// 轉換回 proto 消息
 	protoAppearance := &elizav1.Appearance{
-		Id:             appearance.ID,
-		LogoUrl:        appearance.LogoURL.String,
-		PrimaryColor:   appearance.PrimaryColor.String,
-		SecondaryColor: appearance.SecondaryColor.String,
-		CreatedAt:      appearance.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:      appearance.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		LogoKey:        appearance.LogoKey.String,
-		LogoSize:       appearance.LogoSize.Int64,
-		LogoType:       appearance.LogoType.String,
+		Id:             existingAppearance.ID,
+		LogoUrl:        existingAppearance.LogoURL.String,
+		PrimaryColor:   existingAppearance.PrimaryColor.String,
+		SecondaryColor: existingAppearance.SecondaryColor.String,
+		CreatedAt:      existingAppearance.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		UpdatedAt:      existingAppearance.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		LogoKey:        existingAppearance.LogoKey.String,
+		LogoSize:       existingAppearance.LogoSize.Int64,
+		LogoType:       existingAppearance.LogoType.String,
 	}
 
 	return connect.NewResponse(&elizav1.UpdateAppearanceResponse{
