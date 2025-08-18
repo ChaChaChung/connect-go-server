@@ -21,6 +21,7 @@ type Appearance struct {
 // AppearanceRepository 外觀數據庫操作接口
 type AppearanceRepository interface {
 	GetByID(id string) (*Appearance, error)
+	GetFirst() (*Appearance, error)
 	Update(appearance *Appearance) error
 }
 
@@ -84,4 +85,33 @@ func (r *AppearanceRepositoryImpl) Update(appearance *Appearance) error {
 	)
 
 	return err
+}
+
+// GetFirst 獲取第一筆外觀資料
+func (r *AppearanceRepositoryImpl) GetFirst() (*Appearance, error) {
+	query := `
+		SELECT id, logo_url, primary_color, secondary_color, created_at, updated_at, logo_key, logo_size, logo_type
+		FROM appearance 
+		ORDER BY created_at ASC 
+		LIMIT 1
+	`
+
+	appearance := &Appearance{}
+	err := r.db.QueryRow(query).Scan(
+		&appearance.ID,
+		&appearance.LogoURL,
+		&appearance.PrimaryColor,
+		&appearance.SecondaryColor,
+		&appearance.CreatedAt,
+		&appearance.UpdatedAt,
+		&appearance.LogoKey,
+		&appearance.LogoSize,
+		&appearance.LogoType,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return appearance, nil
 }

@@ -143,28 +143,46 @@ func (s *ElizaServer) GetRandomPerson(ctx context.Context, req *connect.Request[
 	}), nil
 }
 
-// GetAppearance 根據 ID 獲取外觀
+// GetAppearance 獲取第一筆外觀資料
 func (s *ElizaServer) GetAppearance(ctx context.Context, req *connect.Request[elizav1.GetAppearanceRequest]) (*connect.Response[elizav1.GetAppearanceResponse], error) {
-	log.Println("收到獲取外觀請求：", req.Msg.Id)
+	log.Println("收到獲取外觀請求")
 
-	appearance, err := s.appearanceRepo.GetByID(req.Msg.Id)
+	appearance, err := s.appearanceRepo.GetFirst()
 	if err != nil {
 		log.Printf("獲取外觀失敗：%v", err)
 		return nil, connect.NewError(connect.CodeNotFound, err)
 	}
 
-	// 轉換為 proto 消息
+	// 轉換為 proto 消息，處理空值
 	protoAppearance := &elizav1.Appearance{
-		Id:             appearance.ID,
-		LogoUrl:        appearance.LogoURL.String,
-		PrimaryColor:   appearance.PrimaryColor.String,
-		SecondaryColor: appearance.SecondaryColor.String,
-		CreatedAt:      appearance.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		UpdatedAt:      appearance.UpdatedAt.Format("2006-01-02T15:04:05Z07:00"),
-		LogoKey:        appearance.LogoKey.String,
-		LogoSize:       appearance.LogoSize.Int64,
-		LogoType:       appearance.LogoType.String,
+		Id: appearance.ID,
 	}
+
+	// 安全地處理可能為空的字符串字段
+	if appearance.LogoURL.Valid {
+		protoAppearance.LogoUrl = appearance.LogoURL.String
+	}
+	if appearance.PrimaryColor.Valid {
+		protoAppearance.PrimaryColor = appearance.PrimaryColor.String
+	}
+	if appearance.SecondaryColor.Valid {
+		protoAppearance.SecondaryColor = appearance.SecondaryColor.String
+	}
+	if appearance.LogoKey.Valid {
+		protoAppearance.LogoKey = appearance.LogoKey.String
+	}
+	if appearance.LogoType.Valid {
+		protoAppearance.LogoType = appearance.LogoType.String
+	}
+
+	// 安全地處理可能為空的整數字段
+	if appearance.LogoSize.Valid {
+		protoAppearance.LogoSize = appearance.LogoSize.Int64
+	}
+
+	// 時間字段格式化
+	protoAppearance.CreatedAt = appearance.CreatedAt.Format("2006-01-02T15:04:05Z07:00")
+	protoAppearance.UpdatedAt = appearance.UpdatedAt.Format("2006-01-02T15:04:05Z07:00")
 
 	return connect.NewResponse(&elizav1.GetAppearanceResponse{
 		Appearance: protoAppearance,
